@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KL Divergence with Adjustable Variance</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            margin: 40px auto; /* Center the chart */
+            height: 200px; /* Adjusted height for better visualization */
+            position: relative;
+            width: calc(44px * 20); /* Adapt width to fit all bars (bar width + margin) */
+            border-left: 1px solid #ccc; /* Y-axis grid line */
+            border-bottom: 1px solid #ccc; /* X-axis grid line */
+        }
+        .bar {
+            width: 40px; /* Width of a single token bar container */
+            margin: 0 2px; /* Small gap between tokens */
+            display: inline-block;
+            position: relative;
+            height: 100%; /* Ensure bars fill container height */
+        }
+        .ref-bar {
+            width: 50%; /* Reference bar width (half of the container) */
+            background-color: #ff5722;
+            position: absolute;
+            bottom: 0;
+            left: 0; /* Align to the left */
+        }
+        .user-bar {
+            width: 50%; /* User bar width (half of the container) */
+            background-color: #007bff;
+            position: absolute;
+            bottom: 0;
+            right: 0; /* Align to the right */
+        }
+        .x-axis-label {
+            position: absolute;
+            bottom: -20px; /* Position labels below the chart */
+            left: 0; /* Align to the start of the bar */
+            width: 100%; /* Match the width of the bar */
+            text-align: center; /* Center text within the bar */
+            font-size: 12px;
+            color: #666;
+        }
+        .grid-line {
+            position: absolute;
+            width: 100%; /* Match the width of the chart */
+            height: 1px;
+            background-color: #ccc;
+            left: 0;
+        }
+        .grid-label {
+            position: absolute;
+            left: -30px; /* Position labels to the left of the chart */
+            font-size: 12px;
+            color: #666;
+        }
+        .slider-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px; /* Add spacing between sliders */
+            margin: 20px 0;
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .slider-container label {
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #333;
+        }
+        .legend-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px; /* Add spacing above the chart */
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+        }
+        .legend-ref {
+            background-color: #ff5722;
+        }
+        .legend-user {
+            background-color: #007bff;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <h2> \(KL (\pi_\theta \, || \,\pi_{ref})= \) <span id="kl-divergence">0.000</span></h2>
+
+    <!-- Legend Section -->
+    <div class="legend-container">
+        <div class="legend-item">
+            <span class="legend-color legend-user"></span>
+            <span>\(\pi_\theta\)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color legend-ref"></span>
+            <span>\(\pi_{ref}\)</span>
+        </div>
+    </div>
+
+    <!-- Chart Section -->
+    <div class="chart-container" id="chart">
+        <div class="grid-line" style="bottom: 25%;"></div>
+        <div class="grid-line" style="bottom: 50%;"></div>
+        <div class="grid-line" style="bottom: 75%;"></div>
+        <div class="grid-label" style="bottom: 0;">0</div>
+        <div class="grid-label" style="bottom: 25%;">0.25</div>
+        <div class="grid-label" style="bottom: 50%;">0.50</div>
+        <div class="grid-label" style="bottom: 75%;">0.75</div>
+        <div class="grid-label" style="bottom: 100%;">1.0</div>
+    </div>
+
+    <!-- Slider Controls -->
+    <div class="slider-controls">
+        <div class="slider-container">
+            <label for="center-slider">Mean of \(\pi_\theta\):</label>
+            <input type="range" id="center-slider" min="0" max="19" value="10">
+        </div>
+        <div class="slider-container">
+            <label for="variance-slider">Var of \(\pi_\theta\):</label>
+            <input type="range" id="variance-slider" min="0.5" max="1.5" step="0.1" value="1">
+        </div>
+    </div>
+
+    <script>
+        const numTokens = 20;
+        const referenceCenter = 6; // Reference policy center
+        const referenceStdDev = 2; // Standard deviation of reference policy
+        const chart = document.getElementById("chart");
+        const klDisplay = document.getElementById("kl-divergence");
+        const centerSlider = document.getElementById("center-slider");
+        const varianceSlider = document.getElementById("variance-slider");
+
+        let userCenter = parseInt(centerSlider.value); // Initial user policy center
+        let userStdDev = parseFloat(varianceSlider.value); // Initial user policy standard deviation
+
+        // Helper function to calculate Gaussian distribution
+        function gaussian(x, mean, stdDev) {
+            const exponent = -Math.pow(x - mean, 2) / (2 * Math.pow(stdDev, 2));
+            return Math.exp(exponent) / (stdDev * Math.sqrt(2 * Math.PI));
+        }
+
+        // Create the probability distribution for tokens
+        function createDistribution(center, stdDev) {
+            const distribution = [];
+            let sum = 0;
+            for (let i = 0; i < numTokens; i++) {
+                const prob = gaussian(i, center, stdDev);
+                const filteredProb = prob < 0.00001 ? 0 : prob;
+                distribution.push(filteredProb);
+                sum += filteredProb;
+            }
+            return distribution.map(p => p / sum);
+        }
+
+        // Calculate KL divergence KL(P || Q)
+        function calculateKL(p, q) {
+            let kl = 0;
+            for (let i = 0; i < p.length; i++) {
+                if (p[i] > 0 && q[i] > 0) {
+                    kl += p[i] * Math.log(p[i] / q[i]);
+                } else if (p[i] > 0 && q[i] === 0) {
+                    return Infinity;
+                }
+            }
+            return kl.toFixed(3);
+        }
+
+        // Update KL divergence display
+        function updateKLDivergence(klValue) {
+            if (klValue === Infinity) {
+                klDisplay.textContent = "∞";
+            } else {
+                klDisplay.textContent = klValue.toFixed(3);
+            }
+        }
+
+        // Render the chart
+        function renderChart(referenceDist, userDist) {
+            chart.innerHTML = "";
+            chart.innerHTML = `
+                <div class="grid-line" style="bottom: 25%;"></div>
+                <div class="grid-line" style="bottom: 50%;"></div>
+                <div class="grid-line" style="bottom: 75%;"></div>
+                <div class="grid-label" style="bottom: 0;">0</div>
+                <div class="grid-label" style="bottom: 25%;">0.25</div>
+                <div class="grid-label" style="bottom: 50%;">0.50</div>
+                <div class="grid-label" style="bottom: 75%;">0.75</div>
+                <div class="grid-label" style="bottom: 100%;">1.0</div>
+            `;
+            for (let i = 0; i < numTokens; i++) {
+                const bar = document.createElement("div");
+                bar.classList.add("bar");
+                const refBar = document.createElement("div");
+                refBar.style.height = `${referenceDist[i] * 100}%`;
+                refBar.classList.add("ref-bar");
+                bar.appendChild(refBar);
+                const userBar = document.createElement("div");
+                userBar.style.height = `${userDist[i] * 100}%`;
+                userBar.classList.add("user-bar");
+                bar.appendChild(userBar);
+                const label = document.createElement("div");
+                label.classList.add("x-axis-label");
+                label.textContent = i;
+                bar.appendChild(label);
+                chart.appendChild(bar);
+            }
+        }
+
+        const referenceDist = createDistribution(referenceCenter, referenceStdDev);
+        let userDist = createDistribution(userCenter, userStdDev);
+        renderChart(referenceDist, userDist);
+        klDisplay.textContent = calculateKL(userDist, referenceDist);
+
+        centerSlider.addEventListener("input", (event) => {
+            userCenter = parseInt(event.target.value);
+            userDist = createDistribution(userCenter, userStdDev);
+            renderChart(referenceDist, userDist);
+            klDisplay.textContent = calculateKL(userDist, referenceDist);
+        });
+
+        varianceSlider.addEventListener("input", (event) => {
+            userStdDev = parseFloat(event.target.value);
+            userDist = createDistribution(userCenter, userStdDev);
+            renderChart(referenceDist, userDist);
+            klDisplay.textContent = calculateKL(userDist, referenceDist);
+        });
+    </script>
+</body>
+</html>
