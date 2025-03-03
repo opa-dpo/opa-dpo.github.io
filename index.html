@@ -279,10 +279,14 @@
           <h2 class="title is-3">Abstract</h2>
           <div class="content has-text-justified" style="font-size: large;">
             <p>
-                <b>Hallucination</b> remains a major challenge for Large Vision-Language Models (<b>LVLMs</b>). Direct Preference Optimization (<b>DPO</b>) has gained increasing attention as a simple solution to hallucination issues. Nonetheless, <span style="color:rgb(25, 0, 255);">different data construction methods in existing works bring notable performance variations</span>. In short, our contributions are as follows:
+                <b>Hallucination</b> remains a major challenge for Large Vision-Language Models (<b>LVLMs</b>), also referred to as Multimodal Large Language Models (<b>MLLMs</b>). 
+                Direct Preference Optimization (<b><a href="https://arxiv.org/abs/2305.18290" target="_blank">DPO</a></b>) has gained increasing attention as a simple solution to hallucination issues. It directly learns from constructed preference pairs that reflect the severity of hallucinations in responses to the same prompt and image.
+                Nonetheless, we noticed that <span style="color:rgb(255, 0, 0);">different data construction methods in existing works bring notable performance variations</span>. 
+                Furthermore, we have uncovered the underlying reasons for these variations from a theoretical perspective.
+                In short, our contributions are as follows:
               </p><ul>
                 <li>
-                    <b>Systematic Review:</b> We provide a comprehensive review of existing DPO-based algorithms for addressing hallucinations and their data construction strategies.
+                    <b>Systematic Review:</b> We present a comprehensive review of existing DPO-based algorithms for mitigating hallucination issues and highlight their limitations.
                 </li>
                 <li>
                     <b>Crucial Factor Idenfication:</b> From theoretical perspective, we identify that outcomes are highly dependent on whether the constructed data aligns on-policy with the initial (reference) policy of DPO.
@@ -314,18 +318,31 @@
                 <b style="font-size: larger;">Motivation and Performance Summary</b>:
                 </p>
                 <p>
-                Intro of the paper.
+                  To mitigate hallucinations in LVLMs (or MLLMs) with DPO, 
+                  the most effective approach would be to have the model generate a response based on a given prompt and image, 
+                  followed by experts correcting hallucinations in the generated content to construct preference pairs. 
+                  However, in practice, even when these corrections are minor, the corrected responses are often off-policy relative to the original model 
+                  (i.e., they have extremely low sampling probabilities).
+                  We reveal a key point that are often neglected in existing works:
+                  <span style="color:rgb(255, 0, 0);">the off-policy prefferred response can <b>NEVER</b> be learnt by the models due to the implicit KL constraints.</span>
+                  Based on this observation, we propose <b style="color:rgb(255, 0, 0);">OPA-DPO</b>, which aligns the constructed data on-policy before DPO training.
+                  Experimental results demonstrate that OPA-DPO significantly improves performance by incorporating the OPA operation and achieves SOTA results with minimal data requirements.
                 </p>
             </div>
-        <img id="model" width="100%" src="images/web_fig1.png" ,="" alt="Illustration of the RLHF-V frmework">
+        <img id="model" width="100%" src="images/web_fig1.png" ,="" alt="Summary of OPA-DPO">
+        <br>
+        <br>
         <br>
         <br>
         <div class="content has-text-justified">
             <p>
-            <b style="font-size: larger;">Demo of KL Divergence</b>:
+            <b style="font-size: larger;">Demo of <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence" target="_blank">Kullback-Leibler (KL) Divergence</a></b>:
             </p>
             <p>
-            How KL influences the performance.
+              Noticed that the initial training objective of DPO is to maximize the reward-model induced by Bradley-Terry model, while constraining the KL divergence between the model and the reference policy.
+              To provide an intuitive understanding of the importance of on-policy data, we visualize the KL divergence between the current policy (\(\,\pi_\theta\,\)) and the reference policy (\(\,\pi_{ref}\,\)).
+              You can drag the sliders to adjust the mean and variance of the current policy, and observe how the KL divergence changes accordingly.
+              In summary, <b>the KL divergence becomes substantially large if the current policy generates tokens that the reference policy never produces</b>.
             </p>
         </div>
         </div>
@@ -466,6 +483,8 @@
             klDisplay.textContent = calculateKL(userDist, referenceDist);
         });
     </script>
+    <br>
+    <br>
 </section>
 
 <section class="section interpolation-panel"; background-color: #f4f4f9; text-align: center;>
@@ -477,15 +496,31 @@
             <h2 class="title is-3">Review on Related Algorithms</h2>
               <div class="content has-text-justified">
                   <p>
-                  <b style="font-size: larger;">Motivation and Performance Summary</b>:
+                  <b style="font-size: larger;">We categorize existing DPO-based algorithms for addressing hallucination issues in LVLMs into 3 classes: </b>
                   </p>
-                  <p>
-                  Intro of the paper.
-                  </p>
+                  <ul>
+                    <li>
+                        <b>Hallucination Injection:</b> 
+                        (<a href="https://arxiv.org/abs/2402.11411" target="_blank">POVID</a>, and <a href="https://arxiv.org/abs/2405.18654v1" target="_blank">HALVA</a>). 
+                        The ground-truth response is preferred, while the rejected response contains injected hallucinations. Since the errors do not originate from the model itself, the policy is unlikely to benefit from training.
+                    </li>
+                    <li>
+                        <b>Hallucination Recognition:</b> 
+                        (<a href="https://arxiv.org/abs/2312.00849" target="_blank">RLHF-V</a>, <a href="https://arxiv.org/abs/2311.16839" target="_blank">HA-DPO</a> and <a href="https://arxiv.org/abs/2404.14233" target="_blank">HSA-DPO</a>).
+                        The model generates responses, after which experts (AI or human) identify errors and make revisions. The off-policy nature of the revised responses makes them challenging to learn effectively.
+                    </li>
+                    <li>
+                        <b>Self Evolution:</b> 
+                        (<a href="https://arxiv.org/abs/2405.17220" target="_blank">RLAIF-V</a>). 
+                        Both preferred and rejected responses are generated by the initial policy. A superior model assesses hallucinations, preferring the response with fewer errors. However, hallucinations may exist in both responses, thereby affecting the learning efficiency.
+                    </li>
+                  </ul>
               </div>
-          <img id="model" width="100%" src="images/web_fig2.png" ,="" alt="Illustration of the RLHF-V frmework">
+          <img id="model" width="100%" src="images/web_fig2.png" ,="" alt="Summary of Related Algorithms">
           </div>
         </div>
+        <br>
+        <br>
       </div>
 </section>
 
@@ -498,15 +533,26 @@
             <h2 class="title is-3">On-Policy Alignment (OPA)-DPO </h2>
               <div class="content has-text-justified">
                   <p>
-                  <b style="font-size: larger;">Motivation and Performance Summary</b>:
+                  <b style="font-size: larger;">Our proposed OPA-DPO comprises four essential steps:</b>
                   </p>
-                  <p>
-                  Intro of the paper.
-                  </p>
+                    <p>
+                      \(\quad\)<b>Step 1:</b> Collect responses from the original policy based on the images and corresponding prompts.
+                    </p>
+                    <p>
+                      \(\quad\)<b>Step 2:</b> Utilize GPT-4V to correct any hallucinations in the generated responses with minimal modifications.
+                    </p>
+                    <p>
+                      \(\quad\)<b>Step 3:</b> Conduct LoRA-SFT on the GT responses and revised responses.
+                    </p>
+                    <p>
+                      \(\quad\)<b>Step 4:</b> Initiate OPA-DPO training from the policy obtained in step 3.
+                    </p>
               </div>
-          <img id="model" width="100%" src="images/web_fig3.png" ,="" alt="Illustration of the RLHF-V frmework">
+          <img id="model" width="100%" src="images/web_fig3.png" ,="" alt="Implementation of OPA-DPO">
           </div>
         </div>
+        <br>
+        <br>
       </div>
 </section>
 
@@ -519,25 +565,35 @@
             <h2 class="title is-3">Experimental Results</h2>
               <div class="content has-text-justified">
                   <p>
-                  <b style="font-size: larger;">Motivation and Performance Summary</b>:
+                  <b style="font-size: larger;">Hallucination Bench Evaluations:</b>
                   </p>
-                  <p>
-                  Intro of the paper.
-                  </p>
+                    <p>
+                      \(\quad\)<b><a href="https://arxiv.org/abs/2311.07397" target="_blank">AMBER</a>:</b> A benchmark with detailed object annotations, featuring 1004 images in a generative task. Using the official codebase, we evaluate CHAIR score, object coverage, hallucination rate, and alignment with human cognition.
+                    </p>
+                    <p>
+                      \(\quad\)<b><a href="https://arxiv.org/abs/2309.14525" target="_blank">MMHalBench</a>:</b> A question-answering benchmark with 96 images across 12 object categories. Following the official protocol, we use GPT-4 to rate responses from zero to six, calculating hallucination rate by the proportion of responses rated below three.
+                    </p>
+                    <p>
+                      \(\quad\)<b><a href="https://arxiv.org/abs/1809.02156" target="_blank">Object HalBench</a>:</b> A widely used benchmark for assessing object hallucination. We evaluate across 300 instances using the <a href="https://arxiv.org/abs/2312.00849" target="_blank">RLHF-V</a> codebase, reporting hallucination rates at both response (CHAIRs) and object levels (CHAIRi).
+                    </p>
+                    <p>
+                      \(\quad\)<b><a href="https://arxiv.org/abs/2305.10355" target="_blank">POPE</a>:</b> A yes/no question-answering benchmark for object hallucination evaluation. We report accuracy and precision on its Adversarial set, consisting of 3000 cases.
+                    </p>
               </div>
-                <img id="model" width="100%" src="images/web_fig4.png" ,="" alt="Illustration of the RLHF-V frmework">
-
+                <img id="model" width="100%" src="images/web_fig4.png" ,="" alt="Experimental Results">
+              <br>
+              <br>
+              <br>
               <div class="content has-text-justified">
                   <p>
-                  <b style="font-size: larger;">Motivation and Performance Summary</b>:
-                  </p>
-                  <p>
-                  Intro of the paper.
+                  <b style="font-size: larger;">Ablation Studies</b>:
                   </p>
               </div>
-                <img id="model" width="100%" src="images/web_fig5.png" ,="" alt="Illustration of the RLHF-V frmework">
+                <img id="model" width="100%" src="images/web_fig5.png" ,="" alt="Ablation Study">
           </div>
         </div>
+        <br>
+        <br>
       </div>
 </section>
   
@@ -555,19 +611,21 @@
         <div class="column is-six-fifths">
           <div class="content has-text-justified">
             <ul>
-              <li><b>Short-form QA</b>: RLHF-V can give a more trustworthy answer in short-form QA.</li>
+              <li><b>Image description tasks:</b> OPA-DPO helps to significantly reduce hallucination issues. Nevertheless, we have observed that models trained with the OPA-DPO framework tend to adopt a slightly conservative strategy, often disregarding some insignificant details.</li>
             </ul>
           </div>
           <img src="images/web_fig6.png" width="90%" alt="">
+          <br>
+          <br>
+          <img src="images/web_fig7.png" width="90%" alt="">
           <div class="content has-text-justified">
             <ul>
-              <li><b>Long-form QA</b>: RLHF-V can generate informative image description with less hallucinations.</li>
+              <li><b>False premise queries:</b> An interesting phenomenon we observed is that LVLMs consistently exhibit hallucinations when presented with queries based on false premises. These queries include objects or details that either do not exist in the image or are irrelevant to it. OPA-DPO can partially mitigate this issue.</li>
             </ul>
           </div>
-          <img src="images/web_fig7.png" width="90%" alt="">
-          <br>
-          <br>
           <img src="images/web_fig8.png" width="90%" alt="">
+          <br>
+          <br>
         </div>
         <!-- <div class="box"><div class="pic"><img src="demos/p7.png" alt=""></div></div>
         <div class="box"><div class="pic"><img src="demos/p8.png" alt=""></div></div>
@@ -591,6 +649,15 @@
   </code></pre>
     <div class="columns is-centered has-text-centered">
     <h2 class="title is-3">Acknowledgement</h2>
+    </div>
+    <div style="text-align: left; width: 90%; margin: 0 auto;">
+      We would like to express our gratitude for the code snippets provided in 
+      <a href="https://llava-vl.github.io/" target="_blank">LLaVA</a>, 
+      <a href="https://llava-rlhf.github.io/" target="_blank">LLaVA-RLHF</a>, 
+      <a href="https://github.com/lm-sys/FastChat" target="_blank">FastChat</a> and 
+      <a href="https://github.com/huggingface/trl" target="_blank">TRL</a>, and datasets provided in 
+      <a href="https://huggingface.co/datasets/openbmb/RLAIF-V-Dataset" target="_blank">RLAIF-V</a>. 
+      These resources have significantly contributed to the development of our project.
     </div>
     </div>
   </section>
