@@ -539,13 +539,13 @@
                       \(\quad\)<b>Step 1:</b> Collect responses from the original policy based on the images and corresponding prompts.
                     </p>
                     <p>
-                      \(\quad\)<b>Step 2:</b> Utilize GPT-4V to correct any hallucinations in the generated responses with minimal modifications.
+                      \(\quad\)<b>Step 2:</b> Utilize <a href="https://openai.com/contributions/gpt-4v/" target="_blank">GPT-4V</a> to correct any hallucinations in the generated responses with minimal modifications.
                     </p>
                     <p>
-                      \(\quad\)<b>Step 3:</b> Conduct LoRA-SFT on the GT responses and revised responses.
+                      \(\quad\)<b>Step 3:</b> Conduct <a href="https://arxiv.org/abs/2106.09685" target="_blank">LoRA</a>-SFT on the GT responses and revised responses.
                     </p>
                     <p>
-                      \(\quad\)<b>Step 4:</b> Initiate OPA-DPO training from the policy obtained in step 3.
+                      \(\quad\)<b>Step 4:</b> Initiate OPA-DPO training from the policy obtained in step 3. Note that we construct extra image-focused and anchored preference pairs following <a href="https://arxiv.org/abs/2406.11839" target="_blank">mDPO</a>.
                     </p>
               </div>
           <img id="model" width="100%" src="images/web_fig3.png" ,="" alt="Implementation of OPA-DPO">
@@ -654,7 +654,7 @@
       We would like to express our gratitude for the code snippets provided in 
       <a href="https://llava-vl.github.io/" target="_blank">LLaVA</a>, 
       <a href="https://llava-rlhf.github.io/" target="_blank">LLaVA-RLHF</a>, 
-      <a href="https://github.com/lm-sys/FastChat" target="_blank">FastChat</a> and 
+      <a href="https://github.com/lm-sys/FastChat" target="_blank">FastChat</a>, 
       <a href="https://github.com/huggingface/trl" target="_blank">TRL</a>, and datasets provided in 
       <a href="https://huggingface.co/datasets/openbmb/RLAIF-V-Dataset" target="_blank">RLAIF-V</a>. 
       These resources have significantly contributed to the development of our project.
